@@ -1,41 +1,26 @@
-import requests
-import time
-import hmac
-import hashlib
-import base64
-import os
+name: 钉钉每日提醒（加签版）
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
 
-def get_ding_sign(timestamp, secret):
-    secret_enc = secret.encode("utf-8")
-    string_to_sign = f"{timestamp}\n{secret}"
-    string_to_sign_enc = string_to_sign.encode("utf-8")
-    hmac_code = hmac.new(secret_enc, string_to_sign_enc, digestmod=hashlib.sha256).digest()
-    sign = base64.b64encode(hmac_code).decode("utf-8")
-    return sign
+jobs:
+  ding-remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
 
-def send_dingtalk():
-    webhook_base = os.getenv("DING_WEBHOOK")
-    secret = os.getenv("DING_SECRET")
-    if not webhook_base or not secret:
-        print("缺少环境变量 DING_WEBHOOK 或 DING_SECRET")
-        return
+      - name: 配置Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    timestamp = str(round(time.time() * 1000))
-    sign = get_ding_sign(timestamp, secret)
-    url = f"{webhook_base}&timestamp={timestamp}&sign={sign}"
+      - name: 安装依赖
+        run: pip install requests
 
-    content = """⏰ 每日提醒
-记得吃鱼油！
-@13800138000
-"""
-    payload = {
-        "msgtype": "text",
-        "text": {
-            "content": content
-        }
-    }
-    resp = requests.post(url, json=payload)
-    print(resp.text)
-
-if __name__ == "__main__":
-    send_dingtalk()
+      - name: 执行钉钉提醒脚本
+        env:
+          DING_WEBHOOK: ${{ secrets.DING_WEBHOOK }}
+          DING_SECRET: ${{ secrets.DING_SECRET }}
+        run: python ding_remind.py
